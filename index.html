@@ -1,0 +1,1694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>ScoutU Field Tracker</title>
+<style>
+  :root {
+    --navy:#1B2A4A; --blue:#2563EB; --acc:#3B82F6;
+    --light:#EFF6FF; --gray:#6B7280; --lgray:#F3F4F6;
+    --green:#D1FAE5; --dgreen:#065F46;
+    --gold:#FEF3C7; --dorang:#92400E;
+    --red:#FEE2E2; --dred:#991B1B;
+    --orange:#FED7AA;
+    --white:#ffffff;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; overflow:hidden; font-family:Arial,sans-serif; background:var(--lgray); }
+
+  /* ── LAYOUT ── */
+  #app { display:flex; flex-direction:column; height:100vh; height:100dvh; }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    background:var(--navy); color:white;
+    padding:12px 16px 10px;
+    display:flex; align-items:center; justify-content:space-between;
+    flex-shrink:0;
+    padding-top:max(12px, env(safe-area-inset-top));
+  }
+  .topbar-title { font-size:1rem; font-weight:700; line-height:1.2; }
+  .topbar-sub   { font-size:.68rem; color:#94A3B8; margin-top:2px; }
+  .topbar-add   {
+    background:var(--acc); color:white; border:none;
+    width:42px; height:42px; border-radius:50%;
+    font-size:1.5rem; font-weight:300; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0; box-shadow:0 2px 8px rgba(37,99,235,.4);
+  }
+
+  /* ── SCROLL AREA ── */
+  .scroll-area { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:12px 12px 8px; }
+
+  /* ── BOTTOM NAV ── */
+  .bottomnav {
+    background:var(--navy); display:flex;
+    padding-bottom:max(8px, var(--safe-bottom));
+    flex-shrink:0; border-top:1px solid #2d3f5e;
+  }
+  .nav-item {
+    flex:1; display:flex; flex-direction:column; align-items:center;
+    padding:10px 4px 6px; color:#64748B; cursor:pointer;
+    font-size:.65rem; font-weight:600; text-transform:uppercase;
+    letter-spacing:.3px; transition:color .15s; border:none; background:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .nav-item .icon { font-size:1.35rem; margin-bottom:3px; }
+  .nav-item.active { color:var(--acc); }
+
+  /* ── STATS STRIP ── */
+  .stats-strip { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; margin-bottom:12px; scrollbar-width:none; }
+  .stats-strip::-webkit-scrollbar { display:none; }
+  .stat-pill {
+    background:white; border-radius:10px; padding:8px 14px;
+    flex-shrink:0; border-left:3px solid var(--blue);
+    box-shadow:0 1px 3px rgba(0,0,0,.06);
+    min-width:90px;
+  }
+  .stat-pill.green  { border-left-color:var(--dgreen); }
+  .stat-pill.gold   { border-left-color:var(--dorang); }
+  .stat-pill.red    { border-left-color:var(--dred); }
+  .stat-num  { font-size:1.4rem; font-weight:700; color:var(--navy); }
+  .stat-lbl  { font-size:.63rem; color:var(--gray); text-transform:uppercase; font-weight:600; }
+
+  /* ── SEARCH / FILTER BAR ── */
+  .search-bar {
+    display:flex; gap:8px; margin-bottom:10px; align-items:center;
+  }
+  .search-bar input {
+    flex:1; padding:11px 14px; border:1px solid #E2E8F0;
+    border-radius:10px; font-size:.9rem; background:white;
+    -webkit-appearance:none;
+  }
+  .filter-scroll { display:flex; gap:6px; overflow-x:auto; margin-bottom:12px; scrollbar-width:none; padding-bottom:2px; }
+  .filter-scroll::-webkit-scrollbar { display:none; }
+  .filter-chip {
+    padding:7px 14px; border-radius:99px; font-size:.78rem; font-weight:600;
+    border:1.5px solid #E2E8F0; background:white; cursor:pointer;
+    white-space:nowrap; color:var(--gray); transition:all .15s;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .filter-chip.active { background:var(--navy); color:white; border-color:var(--navy); }
+
+  /* ── PROSPECT CARDS ── */
+  .card {
+    background:white; border-radius:12px; padding:14px;
+    margin-bottom:10px; box-shadow:0 1px 4px rgba(0,0,0,.07);
+    position:relative; overflow:hidden;
+    border-left:4px solid var(--lgray);
+    cursor:pointer; transition:box-shadow .15s;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .card:active { box-shadow:0 0 0 2px var(--acc); }
+  .card.status-warm         { border-left-color:#F59E0B; }
+  .card.status-demo-sched   { border-left-color:#F59E0B; }
+  .card.status-demo-done    { border-left-color:#10B981; }
+  .card.status-proposal     { border-left-color:#F97316; }
+  .card.status-closed-won   { border-left-color:#059669; }
+  .card.status-closed-lost  { border-left-color:#DC2626; }
+  .card.status-on-hold      { border-left-color:#DC2626; }
+
+  .card-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px; }
+  .card-name { font-size:1rem; font-weight:700; color:var(--navy); }
+  .card-meta { font-size:.75rem; color:var(--gray); margin-top:1px; }
+
+  .badge {
+    display:inline-block; padding:3px 10px; border-radius:99px;
+    font-size:.72rem; font-weight:700; white-space:nowrap; flex-shrink:0;
+  }
+  .b-cold        { background:var(--lgray);  color:var(--gray); }
+  .b-warm        { background:var(--gold);   color:var(--dorang); }
+  .b-demo-sched  { background:var(--gold);   color:var(--dorang); }
+  .b-demo-done   { background:var(--green);  color:var(--dgreen); }
+  .b-proposal    { background:var(--orange); color:var(--dorang); }
+  .b-closed-won  { background:var(--green);  color:var(--dgreen); }
+  .b-closed-lost { background:var(--red);    color:var(--dred); }
+  .b-on-hold     { background:var(--red);    color:var(--dred); }
+
+  .card-detail { font-size:.78rem; color:#4B5563; margin-bottom:4px; display:flex; align-items:flex-start; gap:6px; }
+  .card-detail .lbl { color:var(--gray); font-weight:600; min-width:54px; flex-shrink:0; }
+
+  .followup-flag { display:inline-flex; align-items:center; gap:4px; font-size:.74rem; font-weight:700; padding:3px 9px; border-radius:99px; margin-top:6px; }
+  .fu-overdue { background:var(--red);  color:var(--dred); }
+  .fu-soon    { background:var(--gold); color:var(--dorang); }
+  .fu-ok      { background:var(--green);color:var(--dgreen); }
+
+  /* ── EVENT CARDS ── */
+  .event-card {
+    background:white; border-radius:12px; padding:14px;
+    margin-bottom:10px; box-shadow:0 1px 4px rgba(0,0,0,.07);
+    border-left:4px solid var(--acc);
+  }
+  .event-card h3 { font-size:.95rem; font-weight:700; color:var(--navy); margin-bottom:4px; }
+  .event-tags { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+  .event-tag { background:var(--lgray); color:var(--gray); font-size:.7rem; padding:2px 8px; border-radius:99px; font-weight:600; }
+  .event-nums { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:8px; }
+  .event-num-box { background:var(--light); border-radius:8px; padding:8px 4px; text-align:center; }
+  .event-num-box .n { font-size:1.3rem; font-weight:700; color:var(--blue); }
+  .event-num-box .l { font-size:.63rem; color:var(--gray); text-transform:uppercase; font-weight:600; margin-top:1px; }
+  .event-notes-text { font-size:.78rem; color:#4B5563; border-top:1px solid var(--lgray); padding-top:8px; }
+
+  /* ── LINKED PROSPECTS ── */
+  .linked-prospects { margin-top:8px; }
+  .linked-title { font-size:.72rem; font-weight:700; color:var(--gray); text-transform:uppercase; letter-spacing:.3px; margin-bottom:6px; }
+  .linked-chip { display:inline-block; background:var(--light); color:var(--blue); font-size:.76rem; font-weight:600; padding:3px 10px; border-radius:99px; margin:2px; cursor:pointer; border:1px solid #BFDBFE; }
+  .linked-chip:active { background:var(--blue); color:white; }
+
+  /* ── DASHBOARD ── */
+  .dash-section { margin-bottom:14px; }
+  .dash-section h3 { font-size:.78rem; font-weight:700; color:var(--navy); text-transform:uppercase; letter-spacing:.4px; margin-bottom:8px; }
+  .pipe-row { margin-bottom:8px; }
+  .pipe-label { display:flex; justify-content:space-between; font-size:.8rem; margin-bottom:3px; }
+  .pipe-track { background:var(--lgray); border-radius:99px; height:10px; overflow:hidden; }
+  .pipe-fill  { height:100%; border-radius:99px; }
+
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px; }
+  .mini-card { background:white; border-radius:10px; padding:10px 12px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .mini-card .n { font-size:1.4rem; font-weight:700; color:var(--navy); }
+  .mini-card .l { font-size:.68rem; color:var(--gray); text-transform:uppercase; font-weight:600; }
+
+  .overdue-item { padding:8px 0; border-bottom:1px solid var(--lgray); }
+  .overdue-item:last-child { border-bottom:none; }
+  .overdue-name { font-size:.85rem; font-weight:700; color:var(--navy); }
+  .overdue-action { font-size:.75rem; color:#4B5563; }
+  .overdue-date { font-size:.72rem; color:var(--dred); font-weight:700; margin-top:2px; }
+
+  /* ── BOTTOM SHEET (modal) ── */
+  .sheet-overlay {
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,.5);
+    z-index:200; align-items:flex-end; justify-content:center;
+  }
+  .sheet-overlay.open { display:flex; }
+  .sheet {
+    background:white; border-radius:20px 20px 0 0;
+    width:100%; max-width:640px;
+    max-height:92vh; max-height:92dvh;
+    overflow-y:auto; -webkit-overflow-scrolling:touch;
+    padding:0 0 max(20px,var(--safe-bottom)) 0;
+    animation:slideUp .25s ease-out;
+  }
+  @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+  .sheet-handle { width:40px; height:4px; background:#CBD5E1; border-radius:99px; margin:12px auto 0; }
+  .sheet-header { padding:14px 18px 12px; border-bottom:1px solid var(--lgray); display:flex; justify-content:space-between; align-items:center; }
+  .sheet-header h2 { font-size:1rem; font-weight:700; color:var(--navy); }
+  .sheet-close { background:var(--lgray); border:none; border-radius:50%; width:30px; height:30px; font-size:1rem; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .sheet-body { padding:16px 18px; }
+
+  /* ── FORMS ── */
+  .form-row { margin-bottom:14px; }
+  .form-row label { display:block; font-size:.73rem; color:var(--gray); font-weight:700; text-transform:uppercase; letter-spacing:.3px; margin-bottom:5px; }
+  .form-row input, .form-row select, .form-row textarea {
+    width:100%; padding:12px 14px; border:1.5px solid #E2E8F0;
+    border-radius:10px; font-size:.95rem; font-family:Arial;
+    background:white; -webkit-appearance:none; appearance:none;
+  }
+  .form-row input:focus, .form-row select:focus, .form-row textarea:focus {
+    outline:none; border-color:var(--acc); box-shadow:0 0 0 3px rgba(59,130,246,.15);
+  }
+  .form-row textarea { min-height:72px; resize:vertical; }
+  .form-2col { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+  /* ── STATUS PICKER ── */
+  .status-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-top:4px; }
+  .status-btn {
+    padding:11px 8px; border-radius:10px; border:2px solid var(--lgray);
+    font-size:.78rem; font-weight:700; cursor:pointer; text-align:center;
+    background:var(--lgray); color:var(--gray); transition:all .15s;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .status-btn.selected { border-color:var(--navy); }
+  .status-btn[data-s="Cold"].selected                { background:var(--lgray);  color:var(--gray);   border-color:#9CA3AF; }
+  .status-btn[data-s="Warm"].selected                { background:var(--gold);   color:var(--dorang); border-color:#F59E0B; }
+  .status-btn[data-s="Demo Scheduled"].selected      { background:var(--gold);   color:var(--dorang); border-color:#F59E0B; }
+  .status-btn[data-s="Demo Done"].selected           { background:var(--green);  color:var(--dgreen); border-color:#10B981; }
+  .status-btn[data-s="Proposal Sent"].selected       { background:var(--orange); color:var(--dorang); border-color:#F97316; }
+  .status-btn[data-s="Closed - Won"].selected        { background:var(--green);  color:var(--dgreen); border-color:#059669; }
+  .status-btn[data-s="Closed - Lost"].selected       { background:var(--red);    color:var(--dred);   border-color:#DC2626; }
+  .status-btn[data-s="On Hold"].selected             { background:var(--red);    color:var(--dred);   border-color:#DC2626; }
+
+  /* ── DETAIL SHEET ── */
+  .detail-field { margin-bottom:12px; }
+  .detail-field .lbl { font-size:.7rem; color:var(--gray); font-weight:700; text-transform:uppercase; letter-spacing:.3px; margin-bottom:2px; }
+  .detail-field .val { font-size:.9rem; color:var(--navy); }
+
+  .action-row { display:flex; gap:8px; margin-top:16px; }
+  .action-btn { flex:1; padding:13px; border:none; border-radius:12px; font-size:.85rem; font-weight:700; cursor:pointer; }
+  .btn-edit   { background:var(--light); color:var(--blue); }
+  .btn-call   { background:var(--green); color:var(--dgreen); }
+  .btn-delete { background:var(--red);   color:var(--dred); }
+
+  /* ── FAB for events ── */
+  .fab-row { display:flex; gap:10px; margin-bottom:12px; }
+  .fab { flex:1; padding:13px; background:var(--navy); color:white; border:none; border-radius:12px; font-size:.85rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; }
+  .fab.blue { background:var(--blue); }
+
+  .empty { text-align:center; padding:50px 20px; color:var(--gray); }
+  .empty .ico { font-size:2.5rem; margin-bottom:10px; }
+  .empty p { font-size:.9rem; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">⚽ ScoutU Field Tracker</div>
+      <div class="topbar-sub">Storm SC · LX United · La Crosse + SE Minnesota</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button onclick="showExportMenu()" style="background:#2d3f5e;border:none;color:#94A3B8;padding:8px 12px;border-radius:8px;font-size:.75rem;font-weight:600;cursor:pointer">⬇ Export</button>
+      <button class="topbar-add" onclick="openAddProspect()" aria-label="Add prospect">+</button>
+    </div>
+  </div>
+
+  <!-- SYNC SETUP SHEET -->
+  <div class="sheet-overlay" id="sync-setup-sheet">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <h2>⚙ Google Sheets Sync Setup</h2>
+        <button class="sheet-close" onclick="closeSheet('sync-setup-sheet')">✕</button>
+      </div>
+      <div class="sheet-body">
+        <div style="background:var(--light);border-radius:10px;padding:12px;margin-bottom:16px;font-size:.78rem;color:#1E40AF;line-height:1.6">
+          <strong>One-time setup — takes about 5 minutes.</strong><br>
+          You only do this once. After setup, every save auto-syncs to your Google Sheet, visible on any device.
+        </div>
+
+        <div style="margin-bottom:14px">
+          <div style="font-size:.8rem;font-weight:700;color:var(--navy);margin-bottom:8px">Step 1 — Create your Google Sheet</div>
+          <div style="font-size:.76rem;color:var(--gray);line-height:1.6;margin-bottom:8px">Go to <strong>sheets.google.com</strong> → click <strong>Blank</strong> → rename it "ScoutU Tracker".<br>Copy the Sheet ID from the URL:<br><code style="background:var(--lgray);padding:2px 6px;border-radius:4px;font-size:.72rem">docs.google.com/spreadsheets/d/<strong>THIS_PART</strong>/edit</code></div>
+          <div class="form-row" style="margin-bottom:0"><label>Paste Sheet ID here</label><input id="cfg-sheet-id" type="text" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms" autocomplete="off" autocorrect="off" spellcheck="false"></div>
+        </div>
+
+        <div style="margin-bottom:14px">
+          <div style="font-size:.8rem;font-weight:700;color:var(--navy);margin-bottom:8px">Step 2 — Get a Google API Key</div>
+          <div style="font-size:.76rem;color:var(--gray);line-height:1.6;margin-bottom:8px">
+            1. Go to <strong>console.cloud.google.com</strong><br>
+            2. Create a new project (name it anything)<br>
+            3. Go to <strong>APIs & Services → Library</strong> → enable <strong>Google Sheets API</strong><br>
+            4. Go to <strong>APIs & Services → Credentials</strong> → <strong>Create Credentials → API Key</strong><br>
+            5. Copy the key and paste below
+          </div>
+          <div class="form-row" style="margin-bottom:0"><label>Paste API Key here</label><input id="cfg-api-key" type="text" placeholder="AIzaSy..." autocomplete="off" autocorrect="off" spellcheck="false"></div>
+        </div>
+
+        <div style="margin-bottom:16px">
+          <div style="font-size:.8rem;font-weight:700;color:var(--navy);margin-bottom:8px">Step 3 — Make your Sheet writable</div>
+          <div style="font-size:.76rem;color:var(--gray);line-height:1.6">
+            In your Google Sheet go to <strong>Share</strong> → under "General access" set to <strong>"Anyone with the link" → Editor</strong>.<br>
+            This lets your API key write data to it.
+          </div>
+        </div>
+
+        <div style="margin-bottom:16px">
+          <div style="font-size:.8rem;font-weight:700;color:var(--navy);margin-bottom:6px">Auto-sync frequency</div>
+          <select id="cfg-sync-freq" style="width:100%;padding:11px;border:1.5px solid #E2E8F0;border-radius:10px;font-size:.9rem">
+            <option value="save">Every time I save a prospect or coach</option>
+            <option value="manual">Manual only (I tap Sync Now)</option>
+          </select>
+        </div>
+
+        <button onclick="saveSyncConfig()" style="width:100%;padding:14px;background:var(--dgreen);color:white;border:none;border-radius:12px;font-size:.95rem;font-weight:700;cursor:pointer;margin-bottom:10px">✅ Save & Test Connection</button>
+        <div id="sync-test-result" style="font-size:.78rem;text-align:center;min-height:20px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXPORT / SYNC MENU -->
+  <div id="export-menu" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:300;align-items:flex-end;justify-content:center">
+    <div style="background:white;border-radius:20px 20px 0 0;width:100%;max-width:640px;padding:20px 20px max(24px,env(safe-area-inset-bottom));max-height:90vh;overflow-y:auto">
+      <div style="width:40px;height:4px;background:#CBD5E1;border-radius:99px;margin:0 auto 16px"></div>
+      <h3 style="color:var(--navy);font-size:1rem;margin-bottom:4px">Sync & Export</h3>
+      <div style="background:var(--light);border-radius:12px;padding:14px;margin:10px 0 14px;border:1.5px solid #BFDBFE">
+        <div style="font-size:.82rem;font-weight:700;color:var(--blue);margin-bottom:6px">🔄 Google Sheets Auto-Sync</div>
+        <div id="sync-status-msg" style="font-size:.76rem;color:var(--gray);margin-bottom:10px">Not configured — tap Setup below.</div>
+        <button onclick="hideExportMenu();openSyncSetup()" style="width:100%;padding:11px;background:var(--blue);color:white;border:none;border-radius:10px;font-size:.85rem;font-weight:700;cursor:pointer;margin-bottom:8px">⚙ Setup Sync</button>
+        <button id="sync-now-btn" onclick="syncToSheets(true)" style="width:100%;padding:11px;background:var(--dgreen);color:white;border:none;border-radius:10px;font-size:.85rem;font-weight:700;cursor:pointer;display:none">🔄 Sync Now</button>
+        <div id="last-sync-label" style="font-size:.72rem;color:var(--gray);text-align:center;margin-top:6px"></div>
+      </div>
+      <div style="font-size:.76rem;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px">Manual CSV Backup</div>
+      <button onclick="exportCSV();hideExportMenu()" style="width:100%;padding:12px;background:var(--navy);color:white;border:none;border-radius:10px;font-size:.85rem;font-weight:700;cursor:pointer;margin-bottom:8px">⬇ Prospects CSV</button>
+      <button onclick="exportCoachCSV();hideExportMenu()" style="width:100%;padding:12px;background:#374151;color:white;border:none;border-radius:10px;font-size:.85rem;font-weight:700;cursor:pointer;margin-bottom:8px">⬇ Coaches CSV</button>
+      <button onclick="exportExpensesCSV();hideExportMenu()" style="width:100%;padding:12px;background:var(--dgreen);color:white;border:none;border-radius:10px;font-size:.85rem;font-weight:700;cursor:pointer;margin-bottom:14px">⬇ Expenses CSV (for taxes)</button>
+      <button onclick="hideExportMenu()" style="width:100%;padding:12px;background:var(--lgray);color:var(--gray);border:none;border-radius:10px;font-size:.85rem;font-weight:700;cursor:pointer">Close</button>
+    </div>
+  </div>
+
+  <!-- SCROLL AREA -->
+  <div class="scroll-area" id="scroll-area">
+
+    <!-- PROSPECTS VIEW -->
+    <div id="view-prospects">
+      <div class="stats-strip" id="stats-strip"></div>
+      <div class="search-bar">
+        <input type="search" id="search-input" placeholder="🔍  Search name, school, club..." oninput="renderProspects()" autocomplete="off" autocorrect="off" spellcheck="false">
+      </div>
+      <div class="filter-scroll" id="filter-chips"></div>
+      <div id="prospect-list"></div>
+    </div>
+
+    <!-- EVENTS VIEW -->
+    <div id="view-events" style="display:none">
+      <div class="fab-row">
+        <button class="fab blue" onclick="openAddEvent()">📅 Log New Event</button>
+      </div>
+      <div id="event-list"></div>
+    </div>
+
+    <!-- DASHBOARD VIEW -->
+    <div id="view-dashboard" style="display:none">
+      <div id="dashboard-content"></div>
+    </div>
+
+    <!-- COACHES VIEW -->
+    <!-- EXPENSES VIEW -->
+    <div id="view-expenses" style="display:none">
+      <div class="stats-strip" id="expense-stats-strip"></div>
+      <div class="fab-row">
+        <button class="fab" onclick="openAddExpense()">💸 Log Expense / Mileage</button>
+      </div>
+      <div class="filter-scroll" id="expense-filter-chips"></div>
+      <div id="expense-list"></div>
+    </div>
+
+    <div id="view-coaches" style="display:none">
+      <div class="fab-row">
+        <button class="fab" onclick="openAddCoach()">🤝 Add Coach Connection</button>
+      </div>
+      <div class="filter-scroll" id="coach-filter-chips"></div>
+      <div id="coach-list"></div>
+    </div>
+
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottomnav">
+    <button class="nav-item active" id="nav-prospects" onclick="switchView('prospects')">
+      <span class="icon">👤</span>Prospects
+    </button>
+    <button class="nav-item" id="nav-coaches" onclick="switchView('coaches')">
+      <span class="icon">🤝</span>Coaches
+    </button>
+    <button class="nav-item" id="nav-events" onclick="switchView('events')">
+      <span class="icon">📅</span>Events
+    </button>
+    <button class="nav-item" id="nav-expenses" onclick="switchView('expenses')">
+      <span class="icon">💸</span>Expenses
+    </button>
+    <button class="nav-item" id="nav-dashboard" onclick="switchView('dashboard')">
+      <span class="icon">📊</span>Dashboard
+    </button>
+  </nav>
+</div>
+
+<!-- ADD / EDIT PROSPECT SHEET -->
+<div class="sheet-overlay" id="prospect-sheet">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <h2 id="prospect-sheet-title">New Prospect</h2>
+      <button class="sheet-close" onclick="closeSheet('prospect-sheet')">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="form-2col">
+        <div class="form-row"><label>First Name</label><input id="p-fname" type="text" autocomplete="off"></div>
+        <div class="form-row"><label>Last Name</label><input id="p-lname" type="text" autocomplete="off"></div>
+      </div>
+      <div class="form-2col">
+        <div class="form-row"><label>Grad Year</label>
+          <select id="p-year"><option>2025</option><option>2026</option><option>2027</option><option>2028</option><option>2029</option><option>2030</option><option>2031</option></select>
+        </div>
+        <div class="form-row"><label>Grade</label>
+          <select id="p-grade"><option>6th</option><option>7th</option><option>8th</option><option>9th</option><option>10th</option><option>11th</option><option>12th</option></select>
+        </div>
+      </div>
+      <div class="form-2col">
+        <div class="form-row"><label>Sport</label>
+          <select id="p-sport">
+            <option>Soccer</option><option>Basketball</option><option>Track & Field</option>
+            <option>Volleyball</option><option>Baseball</option><option>Softball</option>
+            <option>Wrestling</option><option>Football</option><option>Cross Country</option>
+            <option>Multi-Sport</option><option>Other</option>
+          </select>
+        </div>
+        <div class="form-row"><label>Position</label><input id="p-pos" type="text" autocomplete="off"></div>
+      </div>
+      <div class="form-row"><label>School / Club</label><input id="p-school" type="text" placeholder="e.g. Storm SC, Holmen HS…" autocomplete="off"></div>
+      <div class="form-row"><label>Parent / Contact</label><input id="p-contact" type="text" autocomplete="off"></div>
+      <div class="form-row"><label>Phone / Email</label><input id="p-phone" type="tel"></div>
+      <div class="form-row"><label>Where I Met Them</label><input id="p-met" type="text" placeholder="e.g. Coulee Cup, WIAA State Track…" autocomplete="off"></div>
+      <div class="form-row">
+        <label>Status</label>
+        <div class="status-grid" id="status-grid">
+          <button class="status-btn selected" data-s="Cold"          onclick="pickStatus(this)">Cold</button>
+          <button class="status-btn"          data-s="Warm"          onclick="pickStatus(this)">Warm</button>
+          <button class="status-btn"          data-s="Demo Scheduled"onclick="pickStatus(this)">Demo Scheduled</button>
+          <button class="status-btn"          data-s="Demo Done"     onclick="pickStatus(this)">Demo Done</button>
+          <button class="status-btn"          data-s="Proposal Sent" onclick="pickStatus(this)">Proposal Sent</button>
+          <button class="status-btn"          data-s="Closed - Won"  onclick="pickStatus(this)">✅ Closed Won</button>
+          <button class="status-btn"          data-s="Closed - Lost" onclick="pickStatus(this)">Closed Lost</button>
+          <button class="status-btn"          data-s="On Hold"       onclick="pickStatus(this)">On Hold</button>
+        </div>
+      </div>
+      <div class="form-row"><label>ScoutU Profile?</label>
+        <select id="p-profile"><option>No</option><option>Yes - Building</option><option>Yes - Complete</option><option>Yes - Active</option></select>
+      </div>
+      <div class="form-row"><label>Next Action</label><input id="p-action" type="text" autocomplete="off" placeholder="e.g. Send overview, follow-up call…"></div>
+      <div class="form-row"><label>Follow-Up Date</label><input id="p-followup" type="date"></div>
+      <div class="form-row"><label>Notes</label><textarea id="p-notes" placeholder="Anything worth remembering…"></textarea></div>
+      <button onclick="saveProspect()" style="width:100%;padding:15px;background:var(--navy);color:white;border:none;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;margin-top:4px;">Save Prospect</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROSPECT DETAIL SHEET -->
+<div class="sheet-overlay" id="detail-sheet">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <h2 id="detail-name">Prospect</h2>
+      <button class="sheet-close" onclick="closeSheet('detail-sheet')">✕</button>
+    </div>
+    <div class="sheet-body" id="detail-body"></div>
+  </div>
+</div>
+
+<!-- ADD EVENT SHEET -->
+<div class="sheet-overlay" id="event-sheet">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <h2>Log Event</h2>
+      <button class="sheet-close" onclick="closeSheet('event-sheet')">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="form-row"><label>Event Name</label><input id="e-name" type="text" placeholder="e.g. Coulee Cup, WIAA State Track…" autocomplete="off"></div>
+      <div class="form-row"><label>Event Type</label>
+        <select id="e-type">
+          <option>Soccer Tournament</option><option>HS Game</option><option>WIAA State Event</option>
+          <option>Club Practice</option><option>Coaching Clinic</option><option>Referee Assignment</option>
+          <option>Recruiting 101 Session</option><option>ID Camp</option>
+          <option>Basketball Tournament</option><option>Track Meet</option><option>Other</option>
+        </select>
+      </div>
+      <div class="form-2col">
+        <div class="form-row"><label>Date</label><input id="e-date" type="date"></div>
+        <div class="form-row"><label>Location</label><input id="e-loc" type="text" autocomplete="off"></div>
+      </div>
+      <div class="form-row"><label>Sport(s)</label><input id="e-sport" type="text" placeholder="Soccer, Multi-Sport…" autocomplete="off"></div>
+      <div class="form-2col">
+        <div class="form-row"><label>Contacts Made</label><input id="e-contacted" type="number" min="0" value="0" inputmode="numeric"></div>
+        <div class="form-row"><label>Demos Given</label><input id="e-demos" type="number" min="0" value="0" inputmode="numeric"></div>
+      </div>
+      <div class="form-2col">
+        <div class="form-row"><label>Leads Added</label><input id="e-leads" type="number" min="0" value="0" inputmode="numeric"></div>
+        <div class="form-row"><label>Follow-Up Done?</label>
+          <select id="e-followup"><option>Pending</option><option>Yes</option><option>No</option></select>
+        </div>
+      </div>
+      <div class="form-row"><label>Notes / Highlights</label><textarea id="e-notes" placeholder="Key conversations, families to contact…"></textarea></div>
+      <button onclick="saveEvent()" style="width:100%;padding:15px;background:var(--blue);color:white;border:none;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;margin-top:4px;">Log Event</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD / EDIT COACH SHEET -->
+<div class="sheet-overlay" id="coach-sheet">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <h2 id="coach-sheet-title">Add Coach Connection</h2>
+      <button class="sheet-close" onclick="closeSheet('coach-sheet')">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="form-2col">
+        <div class="form-row"><label>First Name</label><input id="c-fname" type="text" autocomplete="off" placeholder="Optional"></div>
+        <div class="form-row"><label>Last Name</label><input id="c-lname" type="text" autocomplete="off" placeholder="Optional"></div>
+      </div>
+      <div class="form-row"><label>School / Club *</label><input id="c-school" type="text" autocomplete="off" placeholder="e.g. Holmen HS, LX United FC…"></div>
+      <div class="form-2col">
+        <div class="form-row"><label>Role</label>
+          <select id="c-role">
+            <option>Head Coach</option><option>Assistant Coach</option><option>Club Director</option>
+            <option>Athletic Director</option><option>Club Technical Director</option><option>Referee Assignor</option><option>Other</option>
+          </select>
+        </div>
+        <div class="form-row"><label>Sport</label>
+          <select id="c-sport">
+            <option>Soccer</option><option>Basketball</option><option>Track & Field</option>
+            <option>Volleyball</option><option>Baseball</option><option>Softball</option>
+            <option>Wrestling</option><option>Multi-Sport</option><option>Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-2col">
+        <div class="form-row"><label>Proximity</label>
+          <select id="c-proximity">
+            <option>Home — La Crosse</option><option>~15 min</option><option>~30 min</option>
+            <option>~45 min</option><option>~1 hr</option><option>~1.5 hr</option>
+            <option>~2 hr</option><option>~2.5 hr</option><option>~3 hr</option><option>Minnesota</option>
+          </select>
+        </div>
+        <div class="form-row"><label>Relationship</label>
+          <select id="c-relationship">
+            <option>Close Colleague</option><option>Conference Colleague</option>
+            <option>Strong Connection</option><option>Tournament Contact</option>
+            <option>Known Contact</option><option>New Connection</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row"><label>Status</label>
+        <select id="c-status">
+          <option>Active Partner</option><option>Warm</option><option>To Contact</option>
+          <option>Referred Lead</option><option>Inactive</option>
+        </select>
+      </div>
+      <div class="form-row"><label>Phone</label><input id="c-phone" type="tel"></div>
+      <div class="form-row"><label>Email</label><input id="c-email" type="email"></div>
+      <div class="form-2col">
+        <div class="form-row"><label>Referrals Given</label><input id="c-referrals" type="number" min="0" value="0" inputmode="numeric"></div>
+        <div class="form-row"><label>Last Contact Date</label><input id="c-lastcontact" type="date"></div>
+      </div>
+      <div class="form-row"><label>Notes</label><textarea id="c-notes" placeholder="Program size, families to meet, ScoutU conversation status…"></textarea></div>
+      <button onclick="saveCoach()" style="width:100%;padding:15px;background:var(--navy);color:white;border:none;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;margin-top:4px;">Save Coach</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD EXPENSE SHEET -->
+<div class="sheet-overlay" id="expense-sheet">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <h2 id="expense-sheet-title">Log Expense / Mileage</h2>
+      <button class="sheet-close" onclick="closeSheet('expense-sheet')">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="form-row">
+        <label>Type</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
+          <button class="status-btn selected" data-et="Mileage"   onclick="pickExpType(this)" style="background:var(--light);color:var(--blue);border-color:var(--blue)">🚗 Mileage</button>
+          <button class="status-btn"          data-et="Fuel"      onclick="pickExpType(this)">⛽ Fuel</button>
+          <button class="status-btn"          data-et="Meals"     onclick="pickExpType(this)">🍔 Meals</button>
+          <button class="status-btn"          data-et="Entry Fee" onclick="pickExpType(this)">🏆 Entry Fee</button>
+          <button class="status-btn"          data-et="Lodging"   onclick="pickExpType(this)">🏨 Lodging</button>
+          <button class="status-btn"          data-et="Supplies"  onclick="pickExpType(this)">📦 Supplies</button>
+          <button class="status-btn"          data-et="Other"     onclick="pickExpType(this)" style="grid-column:span 2">Other</button>
+        </div>
+      </div>
+
+      <!-- MILEAGE FIELDS -->
+      <div id="mileage-fields">
+        <div class="form-2col">
+          <div class="form-row"><label>Miles Driven</label><input id="ex-miles" type="number" min="0" step="0.1" inputmode="decimal" placeholder="0.0"></div>
+          <div class="form-row">
+            <label>IRS Rate ($/mi)</label>
+            <input id="ex-rate" type="number" step="0.001" value="0.670" inputmode="decimal">
+          </div>
+        </div>
+        <div class="form-row" style="background:var(--light);border-radius:10px;padding:10px;margin-bottom:4px">
+          <div style="font-size:.75rem;color:var(--gray);font-weight:700;text-transform:uppercase;margin-bottom:3px">Deductible Amount</div>
+          <div id="mileage-calc" style="font-size:1.3rem;font-weight:700;color:var(--dgreen)">$0.00</div>
+        </div>
+      </div>
+
+      <!-- DOLLAR FIELDS -->
+      <div id="dollar-fields" style="display:none">
+        <div class="form-row"><label>Amount ($)</label><input id="ex-amount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+      </div>
+
+      <div class="form-row"><label>Date</label><input id="ex-date" type="date"></div>
+      <div class="form-row">
+        <label>Linked Event (optional)</label>
+        <select id="ex-event">
+          <option value="">— Not linked to an event —</option>
+        </select>
+      </div>
+      <div class="form-row"><label>Description / Notes</label><input id="ex-notes" type="text" placeholder="e.g. Coulee Cup drive, post-game lunch with family…" autocomplete="off"></div>
+      <button onclick="saveExpense()" style="width:100%;padding:15px;background:var(--dgreen);color:white;border:none;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;margin-top:4px;">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────────────
+let prospects = [
+  {id:1, fname:"Jordan",lname:"Smith",   year:2026,grade:"11th",sport:"Soccer",       pos:"Midfielder",school:"Mississippi Valley Storm SC",contact:"Dave Smith",   phone:"608-555-0101",met:"Coulee Cup — Oct 2025",         status:"Warm",          profile:"No",           action:"Send ScoutU overview link",        followup:"2026-03-18",notes:""},
+  {id:2, fname:"Taylor",lname:"Johnson", year:2026,grade:"11th",sport:"Soccer",       pos:"Forward",   school:"LX United FC",               contact:"Maria Johnson",phone:"608-555-0202",met:"Rush Spring Classic — Mar 2026", status:"Demo Scheduled",profile:"No",           action:"Demo call confirmed for 3/20",     followup:"2026-03-20",notes:""},
+  {id:3, fname:"Casey", lname:"Williams",year:2027,grade:"10th",sport:"Soccer",       pos:"Defender",  school:"HS Varsity — La Crosse",      contact:"Rob Williams", phone:"608-555-0303",met:"My HS roster — current player",  status:"Warm",          profile:"Yes - Building",action:"Walk through profile completion",  followup:"2026-03-22",notes:"Junior on my current roster"},
+  {id:4, fname:"Alex",  lname:"Brown",   year:2026,grade:"11th",sport:"Track & Field",pos:"Sprinter",  school:"La Crosse Central HS",        contact:"Sue Brown",    phone:"608-555-0404",met:"WIAA State Track — June 2025",   status:"Cold",          profile:"No",           action:"Re-engage before June state meet",  followup:"2026-05-15",notes:""},
+  {id:5, fname:"Morgan",lname:"Davis",   year:2027,grade:"10th",sport:"Basketball",   pos:"Guard",     school:"Onalaska HS",                 contact:"Tom Davis",    phone:"608-555-0505",met:"HS Basketball — Feb 2026",       status:"Cold",          profile:"No",           action:"Intro through Coach Ramos",         followup:"2026-04-01",notes:""},
+  {id:6, fname:"Riley", lname:"Miller",  year:2026,grade:"11th",sport:"Volleyball",   pos:"Setter",    school:"Holmen HS",                   contact:"Ann Miller",   phone:"608-555-0606",met:"Conference match — Sept 2025",   status:"Warm",          profile:"No",           action:"Recruiting 101 invite",             followup:"2026-03-25",notes:"Approached me after game"},
+  {id:7, fname:"Parker",lname:"Wilson",  year:2028,grade:"9th", sport:"Soccer",       pos:"GK",        school:"Mississippi Valley Storm SC", contact:"Beth Wilson",  phone:"608-555-0707",met:"Club practice — Jan 2026",       status:"Cold",          profile:"No",           action:"Plant seed — long-term prospect",   followup:"2026-08-01",notes:""},
+  {id:8, fname:"Jamie", lname:"Moore",   year:2026,grade:"11th",sport:"Soccer",       pos:"Winger",    school:"LX United FC",                contact:"Carl Moore",   phone:"608-555-0808",met:"USA Cup Qualifier — Apr 2026",   status:"Demo Done",     profile:"Yes - Building",action:"Follow up: close this week",        followup:"2026-03-19",notes:"Very interested — family ready"},
+  {id:9, fname:"Quinn", lname:"Taylor",  year:2027,grade:"10th",sport:"Baseball",     pos:"Pitcher",   school:"West Salem HS",               contact:"Lisa Taylor",  phone:"608-555-0909",met:"HS Baseball Regional — May 2025",status:"Cold",          profile:"No",           action:"Reach out via Coach Henderson",     followup:"2026-04-15",notes:""},
+  {id:10,fname:"Avery", lname:"Anderson",year:2026,grade:"11th",sport:"Soccer",       pos:"Midfielder",school:"North Star FC — Rochester MN",contact:"Greg Anderson",phone:"507-555-1010",met:"SMSL League Day — MN",          status:"Warm",          profile:"No",           action:"Demo + mention intl reach",         followup:"2026-03-28",notes:"Rochester family — SE MN market"},
+];
+
+let events = [
+  {id:1,name:"Coulee Cup",              type:"Soccer Tournament",    date:"2025-10-05",loc:"La Crosse, WI",    sport:"Soccer",      contacted:8, demos:3,leads:4,followup:"Yes",  notes:"Strong turnout. Storm SC parents very receptive. Many junior families."},
+  {id:2,name:"WIAA State Track & Field",type:"WIAA State Event",     date:"2025-06-07",loc:"UW-La Crosse",     sport:"Track & Field",contacted:12,demos:4,leads:6,followup:"Yes", notes:"Massive statewide audience. Multi-sport families ideal."},
+  {id:3,name:"Rush Spring Classic",     type:"Soccer Tournament",    date:"2026-03-15",loc:"La Crosse, WI",    sport:"Soccer",      contacted:6, demos:2,leads:3,followup:"Pending",notes:"Confirmed 1 demo, 2 warm contacts. Follow up with Johnson family."},
+  {id:4,name:"WIAA State Wrestling",    type:"WIAA State Event",     date:"2026-03-07",loc:"La Crosse Center",  sport:"Wrestling",   contacted:10,demos:5,leads:5,followup:"No",  notes:"First year at this event. Huge opportunity — very underserved market."},
+  {id:5,name:"USA Cup Qualifier MN",    type:"Soccer Tournament",    date:"2026-04-17",loc:"Blaine, MN",       sport:"Soccer",      contacted:5, demos:2,leads:2,followup:"Pending",notes:"Traveled with Storm SC. Anderson family (Rochester) very interested."},
+  {id:6,name:"Recruiting 101 Workshop", type:"Recruiting 101 Session",date:"2026-02-10",loc:"Storm SC — La Crosse",sport:"Multi-Sport",contacted:18,demos:8,leads:7,followup:"Yes",notes:"Best ROI event yet. 18 families. 8 wanted immediate demos."},
+];
+
+let nextPid = 11, nextEid = 7, editingPid = null;
+let activeFilters = { sport:"", year:"", status:"" };
+let currentView = "prospects";
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+const today = () => new Date().toISOString().split("T")[0];
+function daysDiff(d) {
+  if (!d) return null;
+  const a = new Date(d), b = new Date(); b.setHours(0,0,0,0); a.setHours(0,0,0,0);
+  return Math.round((a-b)/86400000);
+}
+function fmtDate(d) {
+  if (!d) return "—";
+  const [y,m,dd] = d.split("-"); return `${m}/${dd}/${y}`;
+}
+const statusKey = s => ({"Cold":"cold","Warm":"warm","Demo Scheduled":"demo-sched","Demo Done":"demo-done","Proposal Sent":"proposal","Closed - Won":"closed-won","Closed - Lost":"closed-lost","On Hold":"on-hold"})[s]||"cold";
+const badgeClass = s => "badge b-"+statusKey(s);
+const cardClass  = s => "card status-"+statusKey(s);
+
+// ── VIEW SWITCHING ────────────────────────────────────────────────────────────
+function switchView(v) {
+  currentView = v;
+  ["prospects","events","dashboard","coaches","expenses"].forEach(n => {
+    document.getElementById("view-"+n).style.display = n===v ? "block" : "none";
+    document.getElementById("nav-"+n).classList.toggle("active", n===v);
+  });
+  document.getElementById("scroll-area").scrollTop = 0;
+  if (v==="prospects") renderProspects();
+  if (v==="events")    renderEvents();
+  if (v==="dashboard") renderDashboard();
+  if (v==="coaches")   renderCoaches();
+  if (v==="expenses")  renderExpenses();
+}
+
+// ── FILTER CHIPS ──────────────────────────────────────────────────────────────
+function buildFilterChips() {
+  const sports  = [...new Set(prospects.map(p=>p.sport))].sort();
+  const years   = [...new Set(prospects.map(p=>String(p.year)))].sort();
+  const statuses= ["Warm","Demo Scheduled","Demo Done","Proposal Sent","Closed - Won"];
+
+  let html = `<button class="filter-chip ${!activeFilters.sport&&!activeFilters.year&&!activeFilters.status?'active':''}" onclick="clearFilters()">All</button>`;
+  statuses.forEach(s => {
+    const on = activeFilters.status===s;
+    html += `<button class="filter-chip ${on?'active':''}" onclick="toggleFilter('status','${s}')">${s}</button>`;
+  });
+  years.forEach(y => {
+    const on = activeFilters.year===y;
+    html += `<button class="filter-chip ${on?'active':''}" onclick="toggleFilter('year','${y}')">Class ${y}</button>`;
+  });
+  sports.forEach(s => {
+    const on = activeFilters.sport===s;
+    html += `<button class="filter-chip ${on?'active':''}" onclick="toggleFilter('sport','${s}')">${s}</button>`;
+  });
+  document.getElementById("filter-chips").innerHTML = html;
+}
+
+function toggleFilter(key, val) {
+  activeFilters[key] = activeFilters[key]===val ? "" : val;
+  renderProspects();
+}
+function clearFilters() {
+  activeFilters = {sport:"",year:"",status:""};
+  document.getElementById("search-input").value = "";
+  renderProspects();
+}
+
+// ── STATS STRIP ───────────────────────────────────────────────────────────────
+function renderStats() {
+  const won     = prospects.filter(p=>p.status==="Closed - Won").length;
+  const hot     = prospects.filter(p=>["Warm","Demo Scheduled","Demo Done","Proposal Sent"].includes(p.status)).length;
+  const overdue = prospects.filter(p=>{ const d=daysDiff(p.followup); return d!==null&&d<0&&!["Closed - Won","Closed - Lost"].includes(p.status); }).length;
+  const soon    = prospects.filter(p=>{ const d=daysDiff(p.followup); return d!==null&&d>=0&&d<=7; }).length;
+  document.getElementById("stats-strip").innerHTML = `
+    <div class="stat-pill"><div class="stat-num">${prospects.length}</div><div class="stat-lbl">Total</div></div>
+    <div class="stat-pill" style="border-left-color:#2563EB"><div class="stat-num">${hot}</div><div class="stat-lbl">Active</div></div>
+    <div class="stat-pill green"><div class="stat-num">${won}</div><div class="stat-lbl">Won</div></div>
+    <div class="stat-pill gold"><div class="stat-num">${soon}</div><div class="stat-lbl">Due Soon</div></div>
+    <div class="stat-pill red"><div class="stat-num">${overdue}</div><div class="stat-lbl">Overdue</div></div>
+  `;
+}
+
+// ── PROSPECT LIST ─────────────────────────────────────────────────────────────
+function renderProspects() {
+  renderStats();
+  buildFilterChips();
+  const q = (document.getElementById("search-input").value||"").toLowerCase();
+  const list = prospects.filter(p => {
+    if (activeFilters.sport  && p.sport!==activeFilters.sport)          return false;
+    if (activeFilters.year   && String(p.year)!==activeFilters.year)    return false;
+    if (activeFilters.status && p.status!==activeFilters.status)        return false;
+    if (q && !`${p.fname} ${p.lname} ${p.school} ${p.contact} ${p.met}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  if (!list.length) {
+    document.getElementById("prospect-list").innerHTML = `<div class="empty"><div class="ico">🔍</div><p>No prospects match.<br><small>Tap All to clear filters.</small></p></div>`;
+    return;
+  }
+
+  document.getElementById("prospect-list").innerHTML = list.map(p => {
+    const d = daysDiff(p.followup);
+    let fuHtml = "";
+    if (d!==null) {
+      if (d<0) fuHtml = `<span class="followup-flag fu-overdue">⚠ Overdue ${fmtDate(p.followup)}</span>`;
+      else if (d<=7) fuHtml = `<span class="followup-flag fu-soon">⏰ ${fmtDate(p.followup)}</span>`;
+      else fuHtml = `<span class="followup-flag fu-ok">📅 ${fmtDate(p.followup)}</span>`;
+    }
+    return `
+      <div class="${cardClass(p.status)}" onclick="openDetail(${p.id})">
+        <div class="card-top">
+          <div>
+            <div class="card-name">${p.lname}, ${p.fname}</div>
+            <div class="card-meta">${p.grade} · ${p.sport}${p.pos?` · ${p.pos}`:""} · Class of ${p.year}</div>
+          </div>
+          <span class="${badgeClass(p.status)}">${p.status}</span>
+        </div>
+        <div class="card-detail"><span class="lbl">School</span>${p.school}</div>
+        <div class="card-detail"><span class="lbl">Met at</span>${p.met}</div>
+        <div class="card-detail"><span class="lbl">Action</span>${p.action||"—"}</div>
+        ${fuHtml}
+      </div>`;
+  }).join("");
+}
+
+// ── DETAIL SHEET ──────────────────────────────────────────────────────────────
+function openDetail(id) {
+  const p = prospects.find(x=>x.id===id);
+  if (!p) return;
+  document.getElementById("detail-name").textContent = `${p.fname} ${p.lname}`;
+  const d = daysDiff(p.followup);
+  let fuHtml = p.followup ? `<span class="followup-flag ${d<0?'fu-overdue':d<=7?'fu-soon':'fu-ok'}">${d<0?'⚠ Overdue':d<=7?'⏰ Due soon':'📅'} ${fmtDate(p.followup)}</span>` : "Not set";
+
+  // find linked events
+  const linked = events.filter(e => p.met && p.met.toLowerCase().includes(e.name.toLowerCase().split("—")[0].trim().toLowerCase().substring(0,8)));
+
+  document.getElementById("detail-body").innerHTML = `
+    <span class="${badgeClass(p.status)}" style="font-size:.85rem;padding:5px 14px;margin-bottom:14px;display:inline-block">${p.status}</span>
+    <div class="detail-field"><div class="lbl">Sport / Position</div><div class="val">${p.sport} — ${p.pos||"—"}</div></div>
+    <div class="detail-field"><div class="lbl">School / Club</div><div class="val">${p.school}</div></div>
+    <div class="detail-field"><div class="lbl">Grade / Grad Year</div><div class="val">${p.grade} · Class of ${p.year}</div></div>
+    <div class="detail-field"><div class="lbl">Parent / Contact</div><div class="val">${p.contact||"—"}</div></div>
+    <div class="detail-field"><div class="lbl">Phone / Email</div><div class="val">${p.phone||"—"}</div></div>
+    <div class="detail-field"><div class="lbl">Where I Met Them</div><div class="val">${p.met||"—"}</div></div>
+    <div class="detail-field"><div class="lbl">ScoutU Profile</div><div class="val">${p.profile}</div></div>
+    <div class="detail-field"><div class="lbl">Next Action</div><div class="val">${p.action||"—"}</div></div>
+    <div class="detail-field"><div class="lbl">Follow-Up</div><div class="val">${fuHtml}</div></div>
+    ${p.notes?`<div class="detail-field"><div class="lbl">Notes</div><div class="val">${p.notes}</div></div>`:""}
+    ${linked.length?`<div class="linked-prospects"><div class="linked-title">Linked Event</div>${linked.map(e=>`<span class="linked-chip" onclick="closeSheet('detail-sheet');switchView('events')">${e.name}</span>`).join("")}</div>`:""}
+    <div class="action-row">
+      <button class="action-btn btn-edit"   onclick="closeSheet('detail-sheet');openEditProspect(${id})">✏ Edit</button>
+      ${p.phone?`<a href="tel:${p.phone}" style="flex:1;text-decoration:none"><button class="action-btn btn-call" style="width:100%">📞 Call</button></a>`:""}
+      <button class="action-btn btn-delete" onclick="deleteProspect(${id})">✕</button>
+    </div>
+  `;
+  openSheet("detail-sheet");
+}
+
+// ── EVENTS ────────────────────────────────────────────────────────────────────
+function renderEvents() {
+  const sorted = [...events].sort((a,b)=>b.date.localeCompare(a.date));
+  if (!sorted.length) {
+    document.getElementById("event-list").innerHTML = `<div class="empty"><div class="ico">📅</div><p>No events yet.<br>Tap Log New Event to add one.</p></div>`;
+    return;
+  }
+  document.getElementById("event-list").innerHTML = sorted.map(e => {
+    const linked = prospects.filter(p => p.met && p.met.toLowerCase().includes(e.name.toLowerCase().split(" ").slice(0,2).join(" ").toLowerCase()));
+    const linkedHtml = linked.length ? `
+      <div class="linked-prospects">
+        <div class="linked-title">Prospects from this event</div>
+        ${linked.map(p=>`<span class="linked-chip" onclick="openDetail(${p.id})">${p.fname} ${p.lname}</span>`).join("")}
+      </div>` : "";
+    const fuColor = e.followup==="Yes"?"var(--dgreen)":e.followup==="Pending"?"var(--dorang)":"var(--dred)";
+    return `
+      <div class="event-card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+          <h3>${e.name}</h3>
+          <button onclick="deleteEvent(${e.id})" style="background:none;border:none;color:#CBD5E1;font-size:1rem;cursor:pointer;padding:0 0 0 8px">✕</button>
+        </div>
+        <div class="event-tags">
+          <span class="event-tag">${e.type}</span>
+          <span class="event-tag">📅 ${fmtDate(e.date)}</span>
+          <span class="event-tag">📍 ${e.loc}</span>
+          <span class="event-tag">⚽ ${e.sport}</span>
+          <span class="event-tag" style="color:${fuColor};font-weight:700">Follow-Up: ${e.followup}</span>
+        </div>
+        <div class="event-nums">
+          <div class="event-num-box"><div class="n">${e.contacted}</div><div class="l">Contacted</div></div>
+          <div class="event-num-box"><div class="n">${e.demos}</div><div class="l">Demos</div></div>
+          <div class="event-num-box"><div class="n">${e.leads}</div><div class="l">Leads</div></div>
+        </div>
+        ${e.notes?`<div class="event-notes-text">${e.notes}</div>`:""}
+        ${linkedHtml}
+      </div>`;
+  }).join("");
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────────────
+function renderDashboard() {
+  const total = prospects.length||1;
+  const statuses = ["Cold","Warm","Demo Scheduled","Demo Done","Proposal Sent","Closed - Won","Closed - Lost","On Hold"];
+  const colors   = {"Cold":"#9CA3AF","Warm":"#F59E0B","Demo Scheduled":"#F59E0B","Demo Done":"#10B981","Proposal Sent":"#F97316","Closed - Won":"#059669","Closed - Lost":"#DC2626","On Hold":"#DC2626"};
+
+  const pipeRows = statuses.map(s=>{
+    const n = prospects.filter(p=>p.status===s).length;
+    return `<div class="pipe-row">
+      <div class="pipe-label"><span>${s}</span><strong>${n}</strong></div>
+      <div class="pipe-track"><div class="pipe-fill" style="width:${Math.round(n/total*100)}%;background:${colors[s]}"></div></div>
+    </div>`;
+  }).join("");
+
+  const sports = [...new Set(prospects.map(p=>p.sport))].sort();
+  const sportRows = sports.map(s=>{
+    const n = prospects.filter(p=>p.sport===s).length;
+    return `<div class="pipe-row">
+      <div class="pipe-label"><span>${s}</span><strong>${n}</strong></div>
+      <div class="pipe-track"><div class="pipe-fill" style="width:${Math.round(n/total*100)}%;background:var(--acc)"></div></div>
+    </div>`;
+  }).join("");
+
+  const years = [2025,2026,2027,2028,2029,2030,2031];
+  const yearRows = years.map(y=>{
+    const n = prospects.filter(p=>p.year===y).length;
+    return `<div class="pipe-row">
+      <div class="pipe-label"><span>Class of ${y}</span><strong>${n}</strong></div>
+      <div class="pipe-track"><div class="pipe-fill" style="width:${Math.round(n/total*100)}%;background:var(--dorang)"></div></div>
+    </div>`;
+  }).join("");
+
+  const overdue = prospects.filter(p=>{ const d=daysDiff(p.followup); return d!==null&&d<0&&!["Closed - Won","Closed - Lost"].includes(p.status); });
+  const overdueHtml = overdue.length
+    ? overdue.map(p=>`<div class="overdue-item"><div class="overdue-name">${p.fname} ${p.lname}</div><div class="overdue-action">${p.action}</div><div class="overdue-date">⚠ Was due ${fmtDate(p.followup)}</div></div>`).join("")
+    : `<div style="color:var(--dgreen);padding:8px 0;font-size:.85rem">✅ No overdue follow-ups!</div>`;
+
+  const tC = events.reduce((s,e)=>s+e.contacted,0);
+  const tD = events.reduce((s,e)=>s+e.demos,0);
+  const tL = events.reduce((s,e)=>s+e.leads,0);
+  const totalExpAmt = expenseTotal();
+  const totalMiles  = mileageTotal();
+
+  document.getElementById("dashboard-content").innerHTML = `
+    <div class="grid-2">
+      <div class="mini-card"><div class="n">${prospects.length}</div><div class="l">Total Prospects</div></div>
+      <div class="mini-card" style="border-left:3px solid var(--dgreen)"><div class="n" style="color:var(--dgreen)">${prospects.filter(p=>p.status==="Closed - Won").length}</div><div class="l">Closed Won</div></div>
+      <div class="mini-card" style="border-left:3px solid var(--dorang)"><div class="n" style="color:var(--dorang)">${overdue.length}</div><div class="l">Overdue</div></div>
+      <div class="mini-card" style="border-left:3px solid var(--blue)"><div class="n">${events.length}</div><div class="l">Events Logged</div></div>
+    </div>
+    <div class="grid-2">
+      <div class="mini-card"><div class="n">${tC}</div><div class="l">Total Contacts</div></div>
+      <div class="mini-card"><div class="n">${tD}</div><div class="l">Total Demos</div></div>
+      <div class="mini-card" style="border-left:3px solid var(--dgreen)"><div class="n" style="color:var(--dgreen)">$${totalExpAmt.toFixed(0)}</div><div class="l">Total Expenses</div></div>
+      <div class="mini-card" style="border-left:3px solid var(--dorang)"><div class="n" style="color:var(--dorang)">${totalMiles.toFixed(0)}</div><div class="l">Miles Driven</div></div>
+    </div>
+    <div class="dash-section" style="background:white;border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      <h3>Pipeline by Status</h3>${pipeRows}
+    </div>
+    <div class="dash-section" style="background:white;border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      <h3>By Sport</h3>${sportRows}
+    </div>
+    <div class="dash-section" style="background:white;border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      <h3>By Grad Year</h3>${yearRows}
+    </div>
+    <div class="dash-section" style="background:white;border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      <h3>⚠ Overdue Follow-Ups</h3>${overdueHtml}
+    </div>
+  `;
+}
+
+// ── SHEETS ────────────────────────────────────────────────────────────────────
+function openSheet(id)  { document.getElementById(id).classList.add("open"); }
+function closeSheet(id) { document.getElementById(id).classList.remove("open"); }
+
+document.querySelectorAll(".sheet-overlay").forEach(o=>{
+  o.addEventListener("click", e=>{ if(e.target===o) o.classList.remove("open"); });
+});
+
+// ── STATUS PICKER ─────────────────────────────────────────────────────────────
+function pickStatus(btn) {
+  document.querySelectorAll("#status-grid .status-btn").forEach(b=>b.classList.remove("selected"));
+  btn.classList.add("selected");
+}
+function getSelectedStatus() {
+  const s = document.querySelector("#status-grid .status-btn.selected");
+  return s ? s.dataset.s : "Cold";
+}
+function setStatus(val) {
+  document.querySelectorAll("#status-grid .status-btn").forEach(b=>{
+    b.classList.toggle("selected", b.dataset.s===val);
+  });
+}
+
+// ── ADD / EDIT PROSPECT ───────────────────────────────────────────────────────
+function openAddProspect() {
+  editingPid = null;
+  document.getElementById("prospect-sheet-title").textContent = "New Prospect";
+  ["p-fname","p-lname","p-pos","p-school","p-contact","p-phone","p-met","p-action","p-notes"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("p-year").value    = "2026";
+  document.getElementById("p-grade").value   = "9th";
+  document.getElementById("p-sport").value   = "Soccer";
+  document.getElementById("p-profile").value = "No";
+  document.getElementById("p-followup").value= "";
+  setStatus("Cold");
+  openSheet("prospect-sheet");
+}
+
+function openEditProspect(id) {
+  const p = prospects.find(x=>x.id===id);
+  if (!p) return;
+  editingPid = id;
+  document.getElementById("prospect-sheet-title").textContent = "Edit Prospect";
+  document.getElementById("p-fname").value    = p.fname;
+  document.getElementById("p-lname").value    = p.lname;
+  document.getElementById("p-year").value     = p.year;
+  document.getElementById("p-grade").value    = p.grade;
+  document.getElementById("p-sport").value    = p.sport;
+  document.getElementById("p-pos").value      = p.pos||"";
+  document.getElementById("p-school").value   = p.school;
+  document.getElementById("p-contact").value  = p.contact;
+  document.getElementById("p-phone").value    = p.phone;
+  document.getElementById("p-met").value      = p.met;
+  document.getElementById("p-profile").value  = p.profile;
+  document.getElementById("p-action").value   = p.action;
+  document.getElementById("p-followup").value = p.followup||"";
+  document.getElementById("p-notes").value    = p.notes||"";
+  setStatus(p.status);
+  openSheet("prospect-sheet");
+}
+
+function saveProspect() {
+  const fname = document.getElementById("p-fname").value.trim();
+  const lname = document.getElementById("p-lname").value.trim();
+  if (!fname && !lname) { alert("Please enter a name."); return; }
+  const p = {
+    id:       editingPid || nextPid++,
+    fname, lname,
+    year:     parseInt(document.getElementById("p-year").value),
+    grade:    document.getElementById("p-grade").value,
+    sport:    document.getElementById("p-sport").value,
+    pos:      document.getElementById("p-pos").value.trim(),
+    school:   document.getElementById("p-school").value.trim(),
+    contact:  document.getElementById("p-contact").value.trim(),
+    phone:    document.getElementById("p-phone").value.trim(),
+    met:      document.getElementById("p-met").value.trim(),
+    status:   getSelectedStatus(),
+    profile:  document.getElementById("p-profile").value,
+    action:   document.getElementById("p-action").value.trim(),
+    followup: document.getElementById("p-followup").value,
+    notes:    document.getElementById("p-notes").value.trim(),
+  };
+  if (editingPid) {
+    const i = prospects.findIndex(x=>x.id===editingPid);
+    if (i>-1) prospects[i]=p;
+  } else {
+    prospects.push(p);
+  }
+  closeSheet("prospect-sheet");
+  renderProspects();
+}
+
+function deleteProspect(id) {
+  if (confirm("Remove this prospect?")) {
+    prospects = prospects.filter(p=>p.id!==id);
+    closeSheet("detail-sheet");
+    renderProspects();
+  }
+}
+
+// ── ADD EVENT ─────────────────────────────────────────────────────────────────
+function openAddEvent() {
+  ["e-name","e-loc","e-sport","e-notes"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("e-date").value      = today();
+  document.getElementById("e-type").value      = "Soccer Tournament";
+  document.getElementById("e-contacted").value = "0";
+  document.getElementById("e-demos").value     = "0";
+  document.getElementById("e-leads").value     = "0";
+  document.getElementById("e-followup").value  = "Pending";
+  openSheet("event-sheet");
+}
+
+function saveEvent() {
+  const name = document.getElementById("e-name").value.trim();
+  if (!name) { alert("Please enter an event name."); return; }
+  events.push({
+    id: nextEid++, name,
+    type:      document.getElementById("e-type").value,
+    date:      document.getElementById("e-date").value,
+    loc:       document.getElementById("e-loc").value.trim(),
+    sport:     document.getElementById("e-sport").value.trim(),
+    contacted: parseInt(document.getElementById("e-contacted").value)||0,
+    demos:     parseInt(document.getElementById("e-demos").value)||0,
+    leads:     parseInt(document.getElementById("e-leads").value)||0,
+    followup:  document.getElementById("e-followup").value,
+    notes:     document.getElementById("e-notes").value.trim(),
+  });
+  closeSheet("event-sheet");
+  renderEvents();
+}
+
+function deleteEvent(id) {
+  if (confirm("Remove this event?")) {
+    events = events.filter(e=>e.id!==id); saveAll(); renderEvents();
+  }
+}
+
+// ── COACH DATA ────────────────────────────────────────────────────────────────
+let coaches = [
+  {id:1, fname:"", lname:"", role:"Head Coach", school:"Mississippi Valley Storm SC", sport:"Soccer", proximity:"Home — La Crosse", relationship:"Close Colleague", phone:"", email:"", lastContact:"", referrals:0, notes:"My club — direct overlap with HS roster families.", status:"Active Partner"},
+  {id:2, fname:"", lname:"", role:"Head Coach", school:"LX United FC", sport:"Soccer", proximity:"Home — La Crosse", relationship:"Strong Connection", phone:"", email:"", lastContact:"", referrals:0, notes:"Connected — near-complete coverage of La Crosse competitive soccer with Storm SC.", status:"Active Partner"},
+  {id:3, fname:"", lname:"", role:"Head Coach", school:"Holmen HS", sport:"Soccer", proximity:"~15 min", relationship:"Conference Colleague", phone:"", email:"", lastContact:"", referrals:0, notes:"Conference rival — know well from competition and coaching clinics.", status:"Warm"},
+  {id:4, fname:"", lname:"", role:"Head Coach", school:"Onalaska HS", sport:"Soccer", proximity:"~15 min", relationship:"Conference Colleague", phone:"", email:"", lastContact:"", referrals:0, notes:"Conference colleague. Strong program. Good referral potential for junior families.", status:"Warm"},
+  {id:5, fname:"", lname:"", role:"Head Coach", school:"West Salem HS", sport:"Soccer", proximity:"~20 min", relationship:"Conference Colleague", phone:"", email:"", lastContact:"", referrals:0, notes:"Conference — smaller program but motivated families.", status:"Warm"},
+  {id:6, fname:"", lname:"", role:"Head Coach", school:"Viroqua HS", sport:"Soccer", proximity:"~40 min", relationship:"Conference Colleague", phone:"", email:"", lastContact:"", referrals:0, notes:"Coulee Conference — attend same tournaments and clinics.", status:"Warm"},
+  {id:7, fname:"", lname:"", role:"Head Coach", school:"Westby HS", sport:"Soccer", proximity:"~35 min", relationship:"Conference Colleague", phone:"", email:"", lastContact:"", referrals:0, notes:"Coulee Conference colleague.", status:"Warm"},
+  {id:8, fname:"", lname:"", role:"Athletic Director", school:"La Crosse area HS", sport:"Multi-Sport", proximity:"Home", relationship:"Known Contact", phone:"", email:"", lastContact:"", referrals:0, notes:"AD relationship = access to all sport coaches and families across entire school.", status:"To Contact"},
+  {id:9, fname:"", lname:"", role:"Head Coach", school:"Eau Claire area", sport:"Soccer", proximity:"~1.5 hr", relationship:"Tournament Contact", phone:"", email:"", lastContact:"", referrals:0, notes:"EC United Invitational connection. Extends reach into Chippewa Valley.", status:"To Contact"},
+  {id:10,fname:"", lname:"", role:"Head Coach", school:"North Star FC — Rochester MN", sport:"Soccer", proximity:"~1.5 hr", relationship:"Tournament Contact", phone:"", email:"", lastContact:"", referrals:0, notes:"SE Minnesota market. Rochester is underserved by recruiting advisors.", status:"To Contact"},
+];
+let nextCid = 11, editingCid = null;
+let coachFilter = "";
+
+const coachStatusColors = {
+  "Active Partner": {bg:"var(--green)",  fg:"var(--dgreen)"},
+  "Warm":           {bg:"var(--gold)",   fg:"var(--dorang)"},
+  "To Contact":     {bg:"var(--light)",  fg:"var(--blue)"},
+  "Referred Lead":  {bg:"#F3E8FF",       fg:"#6B21A8"},
+  "Inactive":       {bg:"var(--lgray)",  fg:"var(--gray)"},
+};
+
+// ── COACH FILTER CHIPS ────────────────────────────────────────────────────────
+function buildCoachFilterChips() {
+  const statuses = ["Active Partner","Warm","To Contact","Referred Lead"];
+  const proximities = [...new Set(coaches.map(c=>c.proximity))];
+  let html = `<button class="filter-chip ${!coachFilter?'active':''}" onclick="setCoachFilter('')">All</button>`;
+  statuses.forEach(s => html += `<button class="filter-chip ${coachFilter===s?'active':''}" onclick="setCoachFilter('${s}')">${s}</button>`);
+  html += `<button class="filter-chip ${coachFilter==='Soccer'?'active':''}" onclick="setCoachFilter('Soccer')">Soccer</button>`;
+  html += `<button class="filter-chip ${coachFilter==='Multi-Sport'?'active':''}" onclick="setCoachFilter('Multi-Sport')">Multi-Sport</button>`;
+  document.getElementById("coach-filter-chips").innerHTML = html;
+}
+function setCoachFilter(f) { coachFilter = f; renderCoaches(); }
+
+// ── RENDER COACHES ────────────────────────────────────────────────────────────
+function renderCoaches() {
+  buildCoachFilterChips();
+  const list = coaches.filter(c => {
+    if (!coachFilter) return true;
+    return c.status === coachFilter || c.sport === coachFilter;
+  });
+
+  if (!list.length) {
+    document.getElementById("coach-list").innerHTML = `<div class="empty"><div class="ico">🤝</div><p>No coaches match.<br><small>Tap All to clear filter.</small></p></div>`;
+    return;
+  }
+
+  const d = daysDiff;
+  document.getElementById("coach-list").innerHTML = list.map(c => {
+    const sc = coachStatusColors[c.status] || coachStatusColors["Inactive"];
+    const nameDisplay = (c.fname || c.lname) ? `${c.lname}${c.fname ? ", "+c.fname : ""}` : c.school;
+    const lastContactLabel = c.lastContact ? (() => {
+      const diff = d(c.lastContact);
+      if (diff === null) return "";
+      if (diff > 30) return `<span style="color:var(--dred);font-size:.73rem;font-weight:700">⚠ Last contact ${fmtDate(c.lastContact)}</span>`;
+      if (diff > 14) return `<span style="color:var(--dorang);font-size:.73rem;font-weight:700">⏰ Last contact ${fmtDate(c.lastContact)}</span>`;
+      return `<span style="color:var(--dgreen);font-size:.73rem">✓ ${fmtDate(c.lastContact)}</span>`;
+    })() : `<span style="color:var(--gray);font-size:.73rem">No contact logged</span>`;
+
+    return `
+      <div class="card" style="border-left-color:${sc.fg}" onclick="openCoachDetail(${c.id})">
+        <div class="card-top">
+          <div>
+            <div class="card-name">${nameDisplay}</div>
+            <div class="card-meta">${c.role} · ${c.sport} · ${c.proximity}</div>
+          </div>
+          <span class="badge" style="background:${sc.bg};color:${sc.fg}">${c.status}</span>
+        </div>
+        <div class="card-detail"><span class="lbl">Program</span>${c.school}</div>
+        <div class="card-detail"><span class="lbl">Relationship</span>${c.relationship}</div>
+        ${c.referrals ? `<div class="card-detail"><span class="lbl">Referrals</span><strong style="color:var(--dgreen)">${c.referrals} sent</strong></div>` : ""}
+        <div style="margin-top:6px">${lastContactLabel}</div>
+      </div>`;
+  }).join("");
+}
+
+// ── COACH DETAIL ──────────────────────────────────────────────────────────────
+function openCoachDetail(id) {
+  const c = coaches.find(x=>x.id===id);
+  if (!c) return;
+  const sc = coachStatusColors[c.status] || coachStatusColors["Inactive"];
+  const nameDisplay = (c.fname || c.lname) ? `${c.fname} ${c.lname}`.trim() : c.school;
+  document.getElementById("detail-name").textContent = nameDisplay;
+
+  // Find prospects referred by this coach
+  const referred = prospects.filter(p => p.met && p.met.toLowerCase().includes(c.school.toLowerCase().split(" ")[0].toLowerCase()));
+
+  document.getElementById("detail-body").innerHTML = `
+    <span class="badge" style="background:${sc.bg};color:${sc.fg};font-size:.85rem;padding:5px 14px;margin-bottom:14px;display:inline-block">${c.status}</span>
+    <div class="detail-field"><div class="lbl">Role</div><div class="val">${c.role}</div></div>
+    <div class="detail-field"><div class="lbl">School / Club</div><div class="val">${c.school}</div></div>
+    <div class="detail-field"><div class="lbl">Sport</div><div class="val">${c.sport}</div></div>
+    <div class="detail-field"><div class="lbl">Proximity</div><div class="val">${c.proximity}</div></div>
+    <div class="detail-field"><div class="lbl">Relationship</div><div class="val">${c.relationship}</div></div>
+    ${c.phone ? `<div class="detail-field"><div class="lbl">Phone</div><div class="val">${c.phone}</div></div>` : ""}
+    ${c.email ? `<div class="detail-field"><div class="lbl">Email</div><div class="val">${c.email}</div></div>` : ""}
+    <div class="detail-field"><div class="lbl">Last Contact</div><div class="val">${c.lastContact ? fmtDate(c.lastContact) : "Not logged"}</div></div>
+    <div class="detail-field"><div class="lbl">Referrals Given</div><div class="val">${c.referrals}</div></div>
+    ${c.notes ? `<div class="detail-field"><div class="lbl">Notes</div><div class="val">${c.notes}</div></div>` : ""}
+    ${referred.length ? `<div class="linked-prospects"><div class="linked-title">Prospects from this network</div>${referred.map(p=>`<span class="linked-chip" onclick="closeSheet('detail-sheet');openDetail(${p.id})">${p.fname} ${p.lname}</span>`).join("")}</div>` : ""}
+    <div class="action-row">
+      <button class="action-btn btn-edit"   onclick="closeSheet('detail-sheet');openEditCoach(${id})">✏ Edit</button>
+      ${c.phone ? `<a href="tel:${c.phone}" style="flex:1;text-decoration:none"><button class="action-btn btn-call" style="width:100%">📞 Call</button></a>` : ""}
+      ${c.email ? `<a href="mailto:${c.email}" style="flex:1;text-decoration:none"><button class="action-btn" style="width:100%;background:var(--light);color:var(--blue);padding:13px;border:none;border-radius:12px;font-size:.85rem;font-weight:700;cursor:pointer">✉ Email</button></a>` : ""}
+      <button class="action-btn btn-delete" onclick="deleteCoach(${id})">✕</button>
+    </div>
+  `;
+  openSheet("detail-sheet");
+}
+
+// ── ADD / EDIT COACH ──────────────────────────────────────────────────────────
+function openAddCoach() {
+  editingCid = null;
+  document.getElementById("coach-sheet-title").textContent = "Add Coach Connection";
+  ["c-fname","c-lname","c-school","c-phone","c-email","c-notes"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("c-role").value         = "Head Coach";
+  document.getElementById("c-sport").value        = "Soccer";
+  document.getElementById("c-proximity").value    = "Home — La Crosse";
+  document.getElementById("c-relationship").value = "Conference Colleague";
+  document.getElementById("c-status").value       = "Warm";
+  document.getElementById("c-referrals").value    = "0";
+  document.getElementById("c-lastcontact").value  = "";
+  openSheet("coach-sheet");
+}
+
+function openEditCoach(id) {
+  const c = coaches.find(x=>x.id===id);
+  if (!c) return;
+  editingCid = id;
+  document.getElementById("coach-sheet-title").textContent = "Edit Coach";
+  document.getElementById("c-fname").value        = c.fname;
+  document.getElementById("c-lname").value        = c.lname;
+  document.getElementById("c-role").value         = c.role;
+  document.getElementById("c-school").value       = c.school;
+  document.getElementById("c-sport").value        = c.sport;
+  document.getElementById("c-proximity").value    = c.proximity;
+  document.getElementById("c-relationship").value = c.relationship;
+  document.getElementById("c-status").value       = c.status;
+  document.getElementById("c-phone").value        = c.phone;
+  document.getElementById("c-email").value        = c.email;
+  document.getElementById("c-referrals").value    = c.referrals;
+  document.getElementById("c-lastcontact").value  = c.lastContact;
+  document.getElementById("c-notes").value        = c.notes;
+  openSheet("coach-sheet");
+}
+
+function saveCoach() {
+  const school = document.getElementById("c-school").value.trim();
+  if (!school) { alert("Please enter a school or club name."); return; }
+  const c = {
+    id:           editingCid || nextCid++,
+    fname:        document.getElementById("c-fname").value.trim(),
+    lname:        document.getElementById("c-lname").value.trim(),
+    role:         document.getElementById("c-role").value,
+    school,
+    sport:        document.getElementById("c-sport").value,
+    proximity:    document.getElementById("c-proximity").value,
+    relationship: document.getElementById("c-relationship").value,
+    status:       document.getElementById("c-status").value,
+    phone:        document.getElementById("c-phone").value.trim(),
+    email:        document.getElementById("c-email").value.trim(),
+    referrals:    parseInt(document.getElementById("c-referrals").value)||0,
+    lastContact:  document.getElementById("c-lastcontact").value,
+    notes:        document.getElementById("c-notes").value.trim(),
+  };
+  if (editingCid) {
+    const i = coaches.findIndex(x=>x.id===editingCid);
+    if (i>-1) coaches[i] = c;
+  } else {
+    coaches.push(c);
+  }
+  closeSheet("coach-sheet");
+  renderCoaches();
+}
+
+function deleteCoach(id) {
+  if (confirm("Remove this coach connection?")) {
+    coaches = coaches.filter(c=>c.id!==id);
+    closeSheet("detail-sheet");
+    renderCoaches();
+  }
+}
+
+// ── PERSISTENCE & GOOGLE SHEETS SYNC ─────────────────────────────────────────
+const KEYS = { prospects:"scoutu_prospects", coaches:"scoutu_coaches", events:"scoutu_events", expenses:"scoutu_expenses", ids:"scoutu_ids", cfg:"scoutu_sync_cfg" };
+
+let syncConfig = { sheetId:"", apiKey:"", freq:"save", lastSync:"" };
+
+function saveAll() {
+  try {
+    localStorage.setItem(KEYS.prospects, JSON.stringify(prospects));
+    localStorage.setItem(KEYS.coaches,   JSON.stringify(coaches));
+    localStorage.setItem(KEYS.events,    JSON.stringify(events));
+    localStorage.setItem(KEYS.expenses, JSON.stringify(expenses));
+    localStorage.setItem(KEYS.ids,       JSON.stringify({nextPid, nextCid, nextEid}));
+  } catch(e) { console.warn("Save failed:", e); }
+  if (syncConfig.sheetId && syncConfig.apiKey && syncConfig.freq === "save") {
+    syncToSheets(false);
+  }
+}
+
+function loadAll() {
+  try {
+    const p = localStorage.getItem(KEYS.prospects);
+    const c = localStorage.getItem(KEYS.coaches);
+    const e = localStorage.getItem(KEYS.events);
+    const exp = localStorage.getItem(KEYS.expenses);
+    const ids = localStorage.getItem(KEYS.ids);
+    const cfg = localStorage.getItem(KEYS.cfg);
+    if (p)   prospects  = JSON.parse(p);
+    if (c)   coaches    = JSON.parse(c);
+    if (e)   events     = JSON.parse(e);
+    if (ids) { const d  = JSON.parse(ids); nextPid=d.nextPid; nextCid=d.nextCid; nextEid=d.nextEid; }
+    if (cfg) { syncConfig = {...syncConfig, ...JSON.parse(cfg)}; }
+  } catch(e) { console.warn("Load failed:", e); }
+  updateSyncUI();
+}
+
+function updateSyncUI() {
+  const configured = syncConfig.sheetId && syncConfig.apiKey;
+  const msg  = document.getElementById("sync-status-msg");
+  const btn  = document.getElementById("sync-now-btn");
+  const lbl  = document.getElementById("last-sync-label");
+  if (!msg) return;
+  if (configured) {
+    msg.innerHTML  = `<span style="color:var(--dgreen);font-weight:700">✅ Connected</span> — syncs ${syncConfig.freq==="save"?"on every save":"manually"}`;
+    msg.style.color = "var(--dgreen)";
+    btn.style.display = "block";
+    lbl.textContent = syncConfig.lastSync ? "Last synced: " + syncConfig.lastSync : "";
+  } else {
+    msg.textContent  = "Not configured — tap Setup below.";
+    msg.style.color  = "var(--gray)";
+    btn.style.display = "none";
+    lbl.textContent  = "";
+  }
+}
+
+// ── SYNC SETUP ────────────────────────────────────────────────────────────────
+function openSyncSetup() {
+  document.getElementById("cfg-sheet-id").value  = syncConfig.sheetId  || "";
+  document.getElementById("cfg-api-key").value   = syncConfig.apiKey   || "";
+  document.getElementById("cfg-sync-freq").value = syncConfig.freq     || "save";
+  document.getElementById("sync-test-result").textContent = "";
+  openSheet("sync-setup-sheet");
+}
+
+async function saveSyncConfig() {
+  const sheetId = document.getElementById("cfg-sheet-id").value.trim();
+  const apiKey  = document.getElementById("cfg-api-key").value.trim();
+  const freq    = document.getElementById("cfg-sync-freq").value;
+  const result  = document.getElementById("sync-test-result");
+
+  if (!sheetId || !apiKey) { result.innerHTML = '<span style="color:var(--dred)">⚠ Please fill in both fields.</span>'; return; }
+
+  result.innerHTML = '<span style="color:var(--blue)">Testing connection…</span>';
+  syncConfig = { sheetId, apiKey, freq, lastSync: syncConfig.lastSync };
+
+  // Test by reading sheet metadata
+  try {
+    const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?key=${apiKey}`);
+    if (!r.ok) throw new Error(await r.text());
+    result.innerHTML = '<span style="color:var(--dgreen);font-weight:700">✅ Connection successful! Syncing now…</span>';
+    localStorage.setItem(KEYS.cfg, JSON.stringify(syncConfig));
+    await syncToSheets(true);
+    closeSheet("sync-setup-sheet");
+    updateSyncUI();
+  } catch(e) {
+    result.innerHTML = `<span style="color:var(--dred)">❌ Connection failed. Check your Sheet ID and API Key.<br><small>${e.message.substring(0,120)}</small></span>`;
+  }
+}
+
+// ── GOOGLE SHEETS SYNC ENGINE ─────────────────────────────────────────────────
+async function syncToSheets(showFeedback = true) {
+  if (!syncConfig.sheetId || !syncConfig.apiKey) return;
+  const { sheetId, apiKey } = syncConfig;
+  const base = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values`;
+
+  // Helper: clear a range then write rows
+  async function writeSheet(tabName, headers, rows) {
+    const range = `${tabName}!A1`;
+    const values = [headers, ...rows];
+    // First ensure tab exists by trying to clear it
+    await fetch(`${base}/${encodeURIComponent(tabName)}!A:ZZ:clear`, {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({})
+    }).catch(()=>{});
+    // Write data
+    const res = await fetch(`${base}/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED&key=${apiKey}`, {
+      method:"PUT",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ values })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(()=>({error:{message:res.statusText}}));
+      throw new Error(err.error?.message || res.statusText);
+    }
+    return res;
+  }
+
+  try {
+    if (showFeedback) {
+      const lbl = document.getElementById("last-sync-label");
+      if (lbl) lbl.textContent = "Syncing…";
+    }
+
+    // PROSPECTS sheet
+    await writeSheet("Prospects",
+      ["ID","Last Name","First Name","Year","Grade","Sport","Position","School/Club","Parent/Contact","Phone/Email","Where Met","Status","Profile","Next Action","Follow-Up","Notes"],
+      prospects.map(p => [p.id,p.lname,p.fname,p.year,p.grade,p.sport,p.pos||"",p.school,p.contact,p.phone,p.met,p.status,p.profile,p.action,p.followup||"",p.notes||""])
+    );
+
+    // COACHES sheet
+    await writeSheet("Coaches",
+      ["ID","Last Name","First Name","Role","School/Club","Sport","Proximity","Relationship","Status","Phone","Email","Referrals","Last Contact","Notes"],
+      coaches.map(c => [c.id,c.lname,c.fname,c.role,c.school,c.sport,c.proximity,c.relationship,c.status,c.phone||"",c.email||"",c.referrals,c.lastContact||"",c.notes||""])
+    );
+
+    // EXPENSES sheet
+    await writeSheet("Expenses",
+      ["ID","Type","Amount","Date","Miles","Rate","Event","Notes"],
+      expenses.map(e => [e.id,e.type,e.amount,e.date,e.miles||"",e.rate||"",e.eventId||"",e.notes||""])
+    );
+
+    // EVENTS sheet
+    await writeSheet("Events",
+      ["ID","Event Name","Type","Date","Location","Sport","Contacts Made","Demos Given","Leads Added","Follow-Up","Notes"],
+      events.map(e => [e.id,e.name,e.type,e.date,e.loc,e.sport,e.contacted,e.demos,e.leads,e.followup,e.notes||""])
+    );
+
+    // Update last sync time
+    const now = new Date().toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
+    syncConfig.lastSync = now;
+    localStorage.setItem(KEYS.cfg, JSON.stringify(syncConfig));
+
+    const lbl = document.getElementById("last-sync-label");
+    const msg = document.getElementById("sync-status-msg");
+    if (lbl) lbl.textContent = "Last synced: " + now;
+    if (msg && showFeedback) msg.innerHTML = `<span style="color:var(--dgreen);font-weight:700">✅ Synced at ${now}</span>`;
+
+  } catch(err) {
+    console.error("Sync failed:", err);
+    const lbl = document.getElementById("last-sync-label");
+    if (lbl) lbl.innerHTML = `<span style="color:var(--dred)">Sync failed: ${err.message.substring(0,80)}</span>`;
+  }
+}
+
+function exportCSV() {
+  const headers = ["Last Name","First Name","Year","Grade","Sport","Position","School/Club","Contact","Phone","Where Met","Status","Profile","Next Action","Follow-Up","Notes"];
+  const rows = prospects.map(p => [p.lname,p.fname,p.year,p.grade,p.sport,p.pos,p.school,p.contact,p.phone,p.met,p.status,p.profile,p.action,p.followup,p.notes].map(v=>`"${(v||"").toString().replace(/"/g,'""')}"`).join(","));
+  const csv = [headers.join(","), ...rows].join("\n");
+  const a = document.createElement("a");
+  a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
+  a.download = "ScoutU_Prospects_" + today() + ".csv";
+  a.click();
+}
+
+function exportCoachCSV() {
+  const headers = ["Last Name","First Name","Role","School/Club","Sport","Proximity","Relationship","Status","Phone","Email","Referrals","Last Contact","Notes"];
+  const rows = coaches.map(c => [c.lname,c.fname,c.role,c.school,c.sport,c.proximity,c.relationship,c.status,c.phone,c.email,c.referrals,c.lastContact,c.notes].map(v=>`"${(v||"").toString().replace(/"/g,'""')}"`).join(","));
+  const csv = [headers.join(","), ...rows].join("\n");
+  const a = document.createElement("a");
+  a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
+  a.download = "ScoutU_Coaches_" + today() + ".csv";
+  a.click();
+}
+
+function exportExpensesCSV() {
+  const headers = ["Type","Amount","Date","Miles","IRS Rate","Linked Event","Notes"];
+  const rows = expenses.map(e => {
+    const linkedEvent = e.eventId ? (events.find(ev=>ev.id===parseInt(e.eventId))?.name||"") : "";
+    return [e.type, e.amount, fmtDate(e.date), e.miles||"", e.rate||"", linkedEvent, e.notes||""]
+      .map(v=>`"${(v||"").toString().replace(/"/g,'""')}"`).join(",");
+  });
+  // Summary rows at bottom
+  const totalMi  = mileageTotal();
+  const totalAmt = expenseTotal();
+  rows.push("","","","","","","");
+  rows.push(['"SUMMARY"',`"Total Deductible: $${totalAmt.toFixed(2)}"`,`"Total Miles: ${totalMi.toFixed(1)}"`,'"","","",""'].join(","));
+  const csv = [headers.join(","), ...rows].join("\n");
+  const a = document.createElement("a");
+  a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
+  a.download = "ScoutU_Expenses_" + today() + ".csv";
+  a.click();
+}
+ { const m = document.getElementById("export-menu"); m.style.display="flex"; updateSyncUI(); }
+function hideExportMenu() { const m = document.getElementById("export-menu"); m.style.display="none"; }
+document.getElementById("export-menu").addEventListener("click", e => { if(e.target===document.getElementById("export-menu")) hideExportMenu(); });
+
+// ── EXPENSES ──────────────────────────────────────────────────────────────────
+let expenses = [];
+let nextExpId = 1;
+let editingExpId = null;
+let expenseFilter = "";
+const IRS_RATE_2024 = 0.670; // standard mileage rate $/mile
+
+function expenseTotal(type) {
+  return expenses.filter(e => !type || e.type === type)
+    .reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+}
+function mileageTotal() {
+  return expenses.filter(e => e.type === "Mileage")
+    .reduce((sum, e) => sum + (parseFloat(e.miles) || 0), 0);
+}
+
+// ── EXPENSE FILTER CHIPS ──────────────────────────────────────────────────────
+function buildExpenseFilterChips() {
+  const types = ["Mileage","Fuel","Meals","Entry Fee","Lodging","Supplies","Other"];
+  let html = `<button class="filter-chip ${!expenseFilter?'active':''}" onclick="setExpFilter('')">All</button>`;
+  types.forEach(t => {
+    const icons = {"Mileage":"🚗","Fuel":"⛽","Meals":"🍔","Entry Fee":"🏆","Lodging":"🏨","Supplies":"📦","Other":"📋"};
+    html += `<button class="filter-chip ${expenseFilter===t?'active':''}" onclick="setExpFilter('${t}')">${icons[t]||''} ${t}</button>`;
+  });
+  document.getElementById("expense-filter-chips").innerHTML = html;
+}
+function setExpFilter(f) { expenseFilter = f; renderExpenses(); }
+
+// ── RENDER EXPENSES ───────────────────────────────────────────────────────────
+function renderExpenses() {
+  buildExpenseFilterChips();
+
+  // Stats strip
+  const totalAmt  = expenseTotal();
+  const totalMi   = mileageTotal();
+  const mileageAmt = expenseTotal("Mileage");
+  const nonMileage = totalAmt - mileageAmt;
+  const ytdStr = new Date().getFullYear();
+
+  document.getElementById("expense-stats-strip").innerHTML = `
+    <div class="stat-pill green"><div class="stat-num">$${totalAmt.toFixed(0)}</div><div class="stat-lbl">${ytdStr} Total</div></div>
+    <div class="stat-pill" style="border-left-color:var(--dorang)"><div class="stat-num">${totalMi.toFixed(0)}</div><div class="stat-lbl">Miles</div></div>
+    <div class="stat-pill" style="border-left-color:var(--blue)"><div class="stat-num">$${mileageAmt.toFixed(0)}</div><div class="stat-lbl">Mileage $</div></div>
+    <div class="stat-pill" style="border-left-color:var(--gray)"><div class="stat-num">$${nonMileage.toFixed(0)}</div><div class="stat-lbl">Other Exp</div></div>
+  `;
+
+  const list = expenses
+    .filter(e => !expenseFilter || e.type === expenseFilter)
+    .sort((a,b) => b.date.localeCompare(a.date));
+
+  if (!list.length) {
+    document.getElementById("expense-list").innerHTML = `<div class="empty"><div class="ico">💸</div><p>No expenses logged yet.<br><small>Tap Log Expense / Mileage to add one.</small></p></div>`;
+    return;
+  }
+
+  const typeIcons = {"Mileage":"🚗","Fuel":"⛽","Meals":"🍔","Entry Fee":"🏆","Lodging":"🏨","Supplies":"📦","Other":"📋"};
+  const typeColors = {"Mileage":"var(--dorang)","Fuel":"#9333EA","Meals":"#0891B2","Entry Fee":"var(--dgreen)","Lodging":"var(--blue)","Supplies":"var(--gray)","Other":"var(--gray)"};
+
+  document.getElementById("expense-list").innerHTML = list.map(e => {
+    const icon  = typeIcons[e.type] || "📋";
+    const color = typeColors[e.type] || "var(--gray)";
+    const amtLabel = e.type === "Mileage"
+      ? `<span style="font-size:.78rem;color:var(--gray)">${e.miles} mi @ $${parseFloat(e.rate).toFixed(3)}</span>`
+      : "";
+    const linkedEvent = e.eventId ? events.find(ev => ev.id === parseInt(e.eventId)) : null;
+
+    return `
+      <div class="card" style="border-left-color:${color}" onclick="openExpenseDetail(${e.id})">
+        <div class="card-top">
+          <div>
+            <div class="card-name">${icon} ${e.type}</div>
+            <div class="card-meta">${fmtDate(e.date)}${linkedEvent ? ' · ' + linkedEvent.name : ''}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:1.1rem;font-weight:700;color:${color}">$${parseFloat(e.amount).toFixed(2)}</div>
+            ${amtLabel}
+          </div>
+        </div>
+        ${e.notes ? `<div class="card-detail"><span class="lbl">Notes</span>${e.notes}</div>` : ""}
+      </div>`;
+  }).join("");
+}
+
+// ── EXPENSE DETAIL ────────────────────────────────────────────────────────────
+function openExpenseDetail(id) {
+  const e = expenses.find(x => x.id === id);
+  if (!e) return;
+  const typeIcons = {"Mileage":"🚗","Fuel":"⛽","Meals":"🍔","Entry Fee":"🏆","Lodging":"🏨","Supplies":"📦","Other":"📋"};
+  const linkedEvent = e.eventId ? events.find(ev => ev.id === parseInt(e.eventId)) : null;
+  document.getElementById("detail-name").textContent = `${typeIcons[e.type]||''} ${e.type}`;
+  document.getElementById("detail-body").innerHTML = `
+    <div style="font-size:1.6rem;font-weight:700;color:var(--dgreen);margin-bottom:14px">$${parseFloat(e.amount).toFixed(2)}</div>
+    <div class="detail-field"><div class="lbl">Date</div><div class="val">${fmtDate(e.date)}</div></div>
+    ${e.type==="Mileage" ? `<div class="detail-field"><div class="lbl">Miles</div><div class="val">${e.miles} miles @ $${parseFloat(e.rate).toFixed(3)}/mi</div></div>` : ""}
+    ${linkedEvent ? `<div class="detail-field"><div class="lbl">Event</div><div class="val">${linkedEvent.name}</div></div>` : ""}
+    ${e.notes ? `<div class="detail-field"><div class="lbl">Notes</div><div class="val">${e.notes}</div></div>` : ""}
+    <div class="action-row">
+      <button class="action-btn btn-edit"   onclick="closeSheet('detail-sheet');openEditExpense(${id})">✏ Edit</button>
+      <button class="action-btn btn-delete" onclick="deleteExpense(${id})">✕ Delete</button>
+    </div>
+  `;
+  openSheet("detail-sheet");
+}
+
+// ── ADD / EDIT EXPENSE ────────────────────────────────────────────────────────
+function pickExpType(btn) {
+  document.querySelectorAll("[data-et]").forEach(b => {
+    b.classList.remove("selected");
+    b.style.background = ""; b.style.color = ""; b.style.borderColor = "";
+  });
+  btn.classList.add("selected");
+  btn.style.background = "var(--light)"; btn.style.color = "var(--blue)"; btn.style.borderColor = "var(--blue)";
+  const isMileage = btn.dataset.et === "Mileage";
+  document.getElementById("mileage-fields").style.display = isMileage ? "block" : "none";
+  document.getElementById("dollar-fields").style.display  = isMileage ? "none"  : "block";
+  updateMileageCalc();
+}
+
+function getSelectedExpType() {
+  const b = document.querySelector("[data-et].selected");
+  return b ? b.dataset.et : "Mileage";
+}
+
+function updateMileageCalc() {
+  const miles = parseFloat(document.getElementById("ex-miles").value) || 0;
+  const rate  = parseFloat(document.getElementById("ex-rate").value)  || IRS_RATE_2024;
+  document.getElementById("mileage-calc").textContent = "$" + (miles * rate).toFixed(2);
+}
+
+function populateEventDropdown() {
+  const sel = document.getElementById("ex-event");
+  sel.innerHTML = '<option value="">— Not linked to an event —</option>';
+  [...events].sort((a,b)=>b.date.localeCompare(a.date)).forEach(e => {
+    sel.innerHTML += `<option value="${e.id}">${e.name} (${fmtDate(e.date)})</option>`;
+  });
+}
+
+function openAddExpense() {
+  editingExpId = null;
+  document.getElementById("expense-sheet-title").textContent = "Log Expense / Mileage";
+  // Reset type buttons
+  document.querySelectorAll("[data-et]").forEach(b => {
+    b.classList.remove("selected");
+    b.style.background=""; b.style.color=""; b.style.borderColor="";
+  });
+  const first = document.querySelector("[data-et='Mileage']");
+  if (first) { first.classList.add("selected"); first.style.background="var(--light)"; first.style.color="var(--blue)"; first.style.borderColor="var(--blue)"; }
+  document.getElementById("mileage-fields").style.display = "block";
+  document.getElementById("dollar-fields").style.display  = "none";
+  document.getElementById("ex-miles").value   = "";
+  document.getElementById("ex-rate").value    = IRS_RATE_2024;
+  document.getElementById("ex-amount").value  = "";
+  document.getElementById("ex-date").value    = today();
+  document.getElementById("ex-notes").value   = "";
+  document.getElementById("mileage-calc").textContent = "$0.00";
+  populateEventDropdown();
+  openSheet("expense-sheet");
+}
+
+function openEditExpense(id) {
+  const e = expenses.find(x => x.id === id);
+  if (!e) return;
+  editingExpId = id;
+  document.getElementById("expense-sheet-title").textContent = "Edit Expense";
+  document.querySelectorAll("[data-et]").forEach(b => {
+    const on = b.dataset.et === e.type;
+    b.classList.toggle("selected", on);
+    b.style.background  = on ? "var(--light)" : "";
+    b.style.color       = on ? "var(--blue)"  : "";
+    b.style.borderColor = on ? "var(--blue)"  : "";
+  });
+  const isMileage = e.type === "Mileage";
+  document.getElementById("mileage-fields").style.display = isMileage ? "block" : "none";
+  document.getElementById("dollar-fields").style.display  = isMileage ? "none"  : "block";
+  document.getElementById("ex-miles").value  = e.miles  || "";
+  document.getElementById("ex-rate").value   = e.rate   || IRS_RATE_2024;
+  document.getElementById("ex-amount").value = isMileage ? "" : e.amount;
+  document.getElementById("ex-date").value   = e.date;
+  document.getElementById("ex-notes").value  = e.notes  || "";
+  updateMileageCalc();
+  populateEventDropdown();
+  document.getElementById("ex-event").value = e.eventId || "";
+  openSheet("expense-sheet");
+}
+
+function saveExpense() {
+  const type     = getSelectedExpType();
+  const isMileage = type === "Mileage";
+  const miles    = parseFloat(document.getElementById("ex-miles").value)  || 0;
+  const rate     = parseFloat(document.getElementById("ex-rate").value)   || IRS_RATE_2024;
+  const rawAmt   = parseFloat(document.getElementById("ex-amount").value) || 0;
+  const amount   = isMileage ? parseFloat((miles * rate).toFixed(2)) : rawAmt;
+  const date     = document.getElementById("ex-date").value;
+
+  if (!date)               { alert("Please enter a date.");    return; }
+  if (isMileage && !miles) { alert("Please enter miles.");     return; }
+  if (!isMileage && !rawAmt){ alert("Please enter an amount."); return; }
+
+  const exp = {
+    id:      editingExpId || nextExpId++,
+    type, amount, date,
+    miles:   isMileage ? miles : 0,
+    rate:    isMileage ? rate  : 0,
+    eventId: document.getElementById("ex-event").value || "",
+    notes:   document.getElementById("ex-notes").value.trim(),
+  };
+
+  if (editingExpId) {
+    const i = expenses.findIndex(x => x.id === editingExpId);
+    if (i > -1) expenses[i] = exp;
+  } else {
+    expenses.push(exp);
+  }
+  closeSheet("expense-sheet");
+  saveAll();
+  renderExpenses();
+}
+
+function deleteExpense(id) {
+  if (confirm("Delete this expense?")) {
+    expenses = expenses.filter(e => e.id !== id);
+    closeSheet("detail-sheet");
+    saveAll();
+    renderExpenses();
+  }
+}
+
+// Wire mileage calc to live update
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("ex-miles")?.addEventListener("input", updateMileageCalc);
+  document.getElementById("ex-rate")?.addEventListener("input",  updateMileageCalc);
+});
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+loadAll();
+renderProspects();
+</script>
+</body>
+</html>
